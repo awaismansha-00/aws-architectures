@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euxo pipefail
+dnf install -y python3-pip
+python3 -m pip install boto3 flask
+install -d /opt/video
+cat > /opt/video/server.py <<'PY'
+${app}
+PY
+cat > /etc/systemd/system/video-web.service <<'UNIT'
+[Unit]
+After=network-online.target
+[Service]
+Environment=AWS_REGION=${region}
+Environment=INPUT_BUCKET=${input}
+Environment=OUTPUT_BUCKET=${output}
+Environment=TABLE_NAME=${table}
+ExecStart=/usr/bin/python3 /opt/video/server.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now video-web

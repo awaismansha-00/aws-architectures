@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euxo pipefail
+dnf install -y docker
+systemctl enable --now docker
+docker run -d --name photoshare --restart always -p 80:8000 -e S3_BUCKET='${bucket}' -e AWS_SECRET_NAME='${secret}' '${image}'

@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euxo pipefail
+dnf install -y python3-pip
+python3 -m pip install flask requests
+install -d -m 0750 /opt/drive
+cat > /opt/drive/app.py <<'PY'
+${app}
+PY
+cat > /etc/drive.env <<'ENV'
+API_URL=${api_url}
+API_KEY=${api_key}
+ENV
+chmod 600 /etc/drive.env
+cat > /etc/systemd/system/drive.service <<'UNIT'
+[Unit]
+After=network-online.target
+[Service]
+EnvironmentFile=/etc/drive.env
+ExecStart=/usr/bin/python3 /opt/drive/app.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now drive

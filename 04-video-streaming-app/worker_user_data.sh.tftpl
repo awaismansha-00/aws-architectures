@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euxo pipefail
+dnf install -y python3-pip tar xz
+python3 -m pip install boto3
+curl -fsSL https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o /tmp/ffmpeg.tar.xz
+tar -xJf /tmp/ffmpeg.tar.xz -C /tmp
+install /tmp/ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ffmpeg
+install -d /opt/video
+cat > /opt/video/worker.py <<'PY'
+${worker}
+PY
+cat > /etc/systemd/system/video-worker.service <<'UNIT'
+[Unit]
+After=network-online.target
+[Service]
+Environment=AWS_REGION=${region}
+Environment=INPUT_BUCKET=${input}
+Environment=OUTPUT_BUCKET=${output}
+Environment=QUEUE_URL=${queue}
+Environment=TABLE_NAME=${table}
+ExecStart=/usr/bin/python3 /opt/video/worker.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now video-worker
