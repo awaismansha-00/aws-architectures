@@ -27,4 +27,4 @@ terraform validate
 terraform plan
 ```
 
-No lab resources were applied during repository verification. Backend bootstrap resources also require an explicit apply when you are ready. Review costs, apply one lab at a time, destroy the main lab first, then destroy `backend/` only when the state history is no longer needed.
+Backend bootstrap resources require an explicit apply when you are ready. Review costs, apply one lab at a time, destroy the main lab first, then destroy `backend/` only when the state history is no longer needed.
