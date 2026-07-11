@@ -1,24 +1,36 @@
 # Chat Application
 
-This project deploys a serverless WebSocket chat backend. It uses API Gateway WebSocket APIs, DynamoDB connection/history tables, SQS for message archiving, and three least-privilege Lambda functions.
+This project deploys a serverless real-time chat backend with an event-driven archive path. API Gateway WebSocket APIs handle persistent client connections, Lambda processes connection and message events, DynamoDB tracks state, and SQS decouples message delivery from history persistence.
 
 ## Architecture Diagram
 
 ![Architecture diagram](architecture.png)
 
-## Architecture
+## Architectural Approach
 
-- `modules/storage` creates encrypted DynamoDB tables for active connections and chat history.
-- `modules/queue` creates the chat log SQS queue and dead-letter queue.
-- `modules/lambda` creates the handler, archiver, and authorizer Lambdas with separate IAM roles.
-- `modules/websocket_api` creates the WebSocket API, `$connect` Lambda authorizer, routes, stage throttling, Lambda permissions, and the handler `execute-api:ManageConnections` policy.
+The architecture combines synchronous WebSocket handling with asynchronous message archiving. Connection, disconnect, and message routes are handled by Lambda so the application does not need long-running socket servers. DynamoDB stores active connection IDs for fan-out and chat history for later reads.
 
-Data flow:
+SQS is used as a buffer between live message handling and archival writes. That keeps the real-time path responsive while giving failed archive work a retry and dead-letter path.
+
+## Request/Data Flow
 
 1. Clients connect with `?token=...`; the authorizer checks the token.
 2. The handler stores/removes active connections and broadcasts messages.
 3. Chat messages are sent to SQS.
 4. The archiver consumes SQS messages and writes chat history to DynamoDB.
+
+## Key AWS Services
+
+- API Gateway WebSocket API manages client connections, routes, stage throttling, and the `$connect` authorizer.
+- Lambda runs the authorizer, route handler, and archive consumer with separate IAM roles.
+- DynamoDB stores active connections and persisted chat history in encrypted tables.
+- SQS and a dead-letter queue provide asynchronous buffering for archive events.
+
+## Operational Considerations
+
+- Separating live handling from archiving reduces latency for connected clients.
+- The handler needs `execute-api:ManageConnections` permission so it can post messages back to WebSocket clients.
+- The static connection token is suitable for a lab, but production chat systems should use identity-aware authentication and authorization.
 
 ## Remote State
 

@@ -1,22 +1,34 @@
 # URL Shortener
 
-This project deploys a serverless URL shortener with Terraform. It uses DynamoDB for URL mappings, two separately permissioned Lambda functions, and a regional REST API Gateway with an API key and usage plan.
+This project deploys a serverless request/response architecture for creating and resolving short URLs. API Gateway provides the public HTTP boundary, Lambda contains the application logic, and DynamoDB stores URL mappings without requiring servers or fixed database capacity.
 
 ## Architecture Diagram
 
 ![Architecture diagram](architecture.png)
 
-## Architecture
+## Architectural Approach
 
-- `modules/storage` creates the encrypted DynamoDB URL table with point-in-time recovery.
-- `modules/lambda` creates the create and redirect Lambdas, CloudWatch log groups, and least-privilege IAM roles.
-- `modules/api` creates API Gateway resources, Lambda invoke permissions, an API key, throttling, and quota controls.
+The application follows a compact serverless API pattern. API Gateway terminates client requests and routes each operation to a purpose-built Lambda function. DynamoDB acts as the durable key-value store for short IDs and long URLs, so the architecture can scale per request without managing compute hosts.
 
-Data flow:
+The create and redirect paths are intentionally separated into different Lambda functions and IAM roles. That keeps each function's permissions narrow: one path writes URL records, while the other only reads them.
+
+## Request/Data Flow
 
 1. `POST /create` stores a long URL in DynamoDB and returns a short ID.
 2. `GET /{id}` reads the long URL and returns an HTTP redirect.
 3. Only the create Lambda can call `dynamodb:PutItem`; only the redirect Lambda can call `dynamodb:GetItem`.
+
+## Key AWS Services
+
+- API Gateway exposes the REST endpoints, API key requirement, usage plan, throttling, and quota controls.
+- Lambda runs the create and redirect handlers with separate CloudWatch log groups and least-privilege IAM roles.
+- DynamoDB stores URL mappings in an encrypted table with point-in-time recovery.
+
+## Operational Considerations
+
+- This is a good fit for unpredictable or low-to-medium traffic because compute cost follows request volume.
+- API keys and usage plans provide basic client control, but production systems should add stronger identity, abuse protection, and custom domain/TLS configuration.
+- DynamoDB keeps the data layer simple, but table key design and TTL/cleanup policy would matter for a long-lived service.
 
 ## Remote State
 

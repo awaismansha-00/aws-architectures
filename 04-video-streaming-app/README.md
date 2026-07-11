@@ -1,25 +1,37 @@
 # Video Streaming App
 
-This project deploys a lab-grade video processing workflow. A web EC2 instance accepts uploads, S3 sends notifications to SQS, and a worker EC2 instance converts videos into HLS output with FFmpeg.
+This project deploys an event-driven media processing pipeline. A web EC2 instance accepts uploads, S3 emits object-created events, SQS buffers processing work, and a worker EC2 instance converts source videos into HLS output with FFmpeg.
 
 ## Architecture Diagram
 
 ![Architecture diagram](architecture.png)
 
-## Architecture
+## Architectural Approach
 
-- `modules/storage` creates private input/output S3 buckets and a DynamoDB video catalog.
-- `modules/queue` creates the video SQS queue, DLQ, queue policy, and S3 event notification.
-- `modules/security` creates separate worker and web security groups.
-- `modules/compute` creates the web and worker EC2 instances, IAM roles, instance profiles, and systemd-backed user data.
+The architecture separates upload handling from video processing. The web tier accepts user uploads and records catalog state, while the worker tier processes videos independently after S3 events arrive through SQS. This avoids making users wait for transcoding during the upload request.
 
-Data flow:
+S3 is the system of record for media files, DynamoDB tracks video status, and SQS absorbs processing spikes or worker downtime. EC2 is used for the FFmpeg workload because media conversion is a longer-running compute task than a typical request/response function.
+
+## Request/Data Flow
 
 1. Users upload a video through the web app.
 2. The web app stores the original object in the input bucket and records catalog state.
 3. S3 sends an object-created event to SQS.
 4. The worker consumes the queue, reads the input object, writes HLS output, and updates DynamoDB.
 5. The web app lists processed videos and serves output from the private output bucket.
+
+## Key AWS Services
+
+- S3 stores original uploads and generated HLS output in private buckets.
+- SQS and a dead-letter queue buffer video processing events from S3.
+- EC2 runs the web application and FFmpeg worker with IAM instance profiles.
+- DynamoDB stores the video catalog and processing status.
+
+## Operational Considerations
+
+- Queue-based processing makes uploads resilient to worker restarts and temporary processing backlogs.
+- A production streaming system would usually add CloudFront, signed delivery, stronger upload validation, and a managed or autoscaled worker fleet.
+- FFmpeg binaries and user-uploaded media should be treated as a supply-chain and security review point before production use.
 
 ## Remote State
 

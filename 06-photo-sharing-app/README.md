@@ -1,27 +1,38 @@
 # Photo Sharing App
 
-This project deploys a photo-sharing architecture with a four-subnet VPC, private RDS MySQL database, private S3 photo bucket, Dockerized EC2 app server, Application Load Balancer, Secrets Manager, and S3-triggered metadata Lambda.
+This project deploys a three-tier photo-sharing architecture with an event-driven metadata extension. An Application Load Balancer exposes the app tier, EC2 runs the Dockerized web application, RDS stores relational data in private subnets, S3 stores photo objects, and Lambda reacts to new uploads.
 
 ## Architecture Diagram
 
 ![Architecture diagram](architecture.png)
 
-## Architecture
+## Architectural Approach
 
-- `modules/network` creates the VPC, two public subnets, two private subnets, internet gateway, and public routing.
-- `modules/security` creates separate ALB, web, and database security groups.
-- `modules/database` creates the RDS subnet group, private MySQL instance, generated password, and Secrets Manager secret.
-- `modules/storage` creates the private encrypted S3 photo bucket.
-- `modules/web` creates the EC2 app role, instance profile, Docker app server, target group, ALB, and listener.
-- `modules/metadata_lambda` creates the Lambda, IAM role, log group, invoke permission, and S3 notification.
+The architecture follows a traditional web application pattern with clear network and data boundaries. Public subnets contain the load balancer, private subnets contain the database, and security groups restrict traffic from the ALB to the web tier and from the web tier to RDS.
 
-Data flow:
+The application separates binary photo storage from relational application data. S3 stores uploaded images, RDS stores structured records, Secrets Manager stores database credentials, and an S3-triggered Lambda provides an event-driven hook for photo metadata processing.
+
+## Request/Data Flow
 
 1. Users reach the ALB over HTTP.
 2. The ALB forwards requests to the EC2 app instance.
 3. The app reads database credentials from Secrets Manager and stores photos in S3.
 4. RDS is private and accepts MySQL only from the web security group.
 5. S3 object-created events invoke the metadata Lambda.
+
+## Key AWS Services
+
+- VPC, public subnets, private subnets, and route tables define the network layout.
+- Application Load Balancer exposes the HTTP endpoint and forwards traffic to the EC2 app target.
+- EC2 runs the Dockerized application with an IAM instance profile for AWS access.
+- RDS MySQL stores relational data in private subnets, with credentials managed in Secrets Manager.
+- S3 stores private encrypted photo objects, and Lambda handles upload-triggered metadata work.
+
+## Operational Considerations
+
+- The public entry point is limited to the ALB; the database remains private and security-group restricted.
+- Separating S3 object storage from RDS avoids storing large binary data in the relational database.
+- Production hardening should add HTTPS, multiple app instances, backups, deletion protection, final snapshots, container image review, and tighter secret rotation.
 
 ## Remote State
 
