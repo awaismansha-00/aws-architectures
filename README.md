@@ -1,5 +1,7 @@
 # AWS Architecture Labs in Terraform
 
+![AWS Real-World Architectures in Terraform](architecture.png)
+
 This repository is a portfolio of AWS architecture patterns implemented with modular Terraform. Each lab focuses on a different application shape, from serverless request/response APIs to event-driven processing, blue/green traffic shifting, and three-tier web systems.
 
 The goal is not only to provision resources, but to show how the services work together, where state lives, how requests or events move through the system, and what operational tradeoffs each design introduces.
